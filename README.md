@@ -34,7 +34,8 @@ dans `tests/` ; si un test échoue, le bot ne tourne pas.
 3. Onglet **Actions** → active les workflows → « paper-bot » → **Run workflow**.
 4. Optionnel mais conseillé : crée une clé RPC gratuite chez Helius et ajoute-la dans
    Settings → Secrets → Actions sous le nom `SOLANA_RPC`. Le RPC public de Solana est
-   souvent limité et provoque des rejets `check_error`.
+   souvent limité et provoque des rejets `check_error`. Le plan gratuit de Helius
+   (1 M de crédits/mois) suffit : le bot consomme au pire ~220 k appels par mois.
 
 Le résultat de chaque run s'affiche dans l'onglet Actions (résumé du run).
 
