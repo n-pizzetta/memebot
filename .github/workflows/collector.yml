@@ -4,6 +4,9 @@ on:
   schedule:
     - cron: "*/15 * * * *"   # dépôt public : gratuit. Dépôt privé : passe à "7 * * * *" (1x/heure)
   workflow_dispatch: {}       # bouton "Run workflow" pour lancer à la main
+  push:                       # chaque modification du code lance aussi un cycle
+    branches: [main]
+    paths-ignore: ["data/**"]
 
 permissions:
   contents: write             # pour sauvegarder data/journal.db dans le dépôt
