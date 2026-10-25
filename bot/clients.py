@@ -37,6 +37,11 @@ def trending_pools(page):
     return _gecko("/networks/solana/trending_pools", {"page": page, "include": "base_token"})
 
 
+def top_volume_pools(page):
+    return _gecko("/networks/solana/pools",
+                  {"page": page, "sort": "h24_volume_usd_desc", "include": "base_token"})
+
+
 def ohlcv_hourly(pool):
     data = _gecko(f"/networks/solana/pools/{pool}/ohlcv/hour",
                   {"aggregate": 1, "limit": C.BREAKOUT_LOOKBACK_H + 4, "currency": "usd"})

@@ -7,6 +7,7 @@ MAX_AGE_H = 24 * 7          # et ceux de plus de 7 jours
 MIN_LIQ_USD = 50_000        # liquidité mini du pool pour pouvoir sortir
 MIN_VOL_24H_USD = 100_000   # volume mini sur 24 h
 TRENDING_PAGES = 3          # pages GeckoTerminal "trending pools" scannées par run
+TOP_VOLUME_PAGES = 5        # + pages "plus gros volume 24 h" pour élargir l'univers
 MAX_DEEP_CHECKS = 25        # nb max de tokens vérifiés on-chain par run (limites d'API)
 
 # --- Gates (éliminatoires) -----------------------------------------------

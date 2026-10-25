@@ -72,12 +72,14 @@ def risk_state(conn, now):
 
 def deep_check(p):
     """On-chain and RugCheck gates. Any error rejects the token (fail closed)."""
+    step = "mint"
     try:
         acct = clients.mint_account(p["mint"])
         reason = logic.mint_gate(acct)
         if reason:
             return reason
         supply = acct["data"]["parsed"]["info"]["supply"]
+        step = "holders"
         largest = clients.largest_accounts(p["mint"])
         owned = clients.program_owned([a["address"] for a in largest])
         reason = logic.holder_gate(logic.top10_pct(largest, owned, supply))
@@ -87,7 +89,8 @@ def deep_check(p):
             return logic.rugcheck_gate(clients.rugcheck_summary(p["mint"]))
         return None
     except Exception as e:
-        return f"check_error:{type(e).__name__}"
+        status = getattr(getattr(e, "response", None), "status_code", None)
+        return f"check_error:{step}:{status or type(e).__name__}"
 
 
 def main():
@@ -105,8 +108,14 @@ def main():
             pools += logic.parse_pools(clients.trending_pools(page), now)
         except Exception as e:
             log(f"trending page {page} failed: {e!r}")
-    pools = logic.dedupe_by_mint(pools)
     feed_ok = len(pools) > 0 and not notes
+    # Second source, widens the universe. Not critical: failure doesn't trip the breaker.
+    for page in range(1, C.TOP_VOLUME_PAGES + 1):
+        try:
+            pools += logic.parse_pools(clients.top_volume_pools(page), now)
+        except Exception as e:
+            log(f"top-volume page {page} failed (non-critical): {e!r}")
+    pools = logic.dedupe_by_mint(pools)
 
     # 2. manage open paper positions first ----------------------------------------
     update_positions(conn, now, log)
