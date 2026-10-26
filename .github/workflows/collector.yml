@@ -2,7 +2,7 @@ name: paper-bot
 
 on:
   schedule:
-    - cron: "*/15 * * * *"   # dépôt public : gratuit. Dépôt privé : passe à "7 * * * *" (1x/heure)
+    - cron: "7,22,37,52 * * * *"   # toutes les 15 min, hors minutes pleines (moins de créneaux sautés). Dépôt public : gratuit. Dépôt privé : passe à "7 * * * *" (1x/heure)
   workflow_dispatch: {}       # bouton "Run workflow" pour lancer à la main
   push:                       # chaque modification du code lance aussi un cycle
     branches: [main]
