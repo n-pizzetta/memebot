@@ -107,10 +107,11 @@ def rugcheck_gate(summary):
 
 # ---------- signal -------------------------------------------------------------
 
-def breakout(ohlcv):
+def breakout(ohlcv, lookback_h=24, volume_mult=1.5):
     """ohlcv: list of [ts, open, high, low, close, volume], newest first
-    (GeckoTerminal order). Index 0 is the still-open candle and is ignored."""
-    need = C.BREAKOUT_LOOKBACK_H + 2
+    (GeckoTerminal order). Index 0 is the still-open candle and is ignored.
+    The returned candle_ts identifies the signal: one candle = one trade at most."""
+    need = lookback_h + 2
     if not ohlcv or len(ohlcv) < need:
         return None
     last = ohlcv[1]
@@ -118,7 +119,7 @@ def breakout(ohlcv):
     prior_high = max(float(c[2]) for c in prior)
     med_vol = median(float(c[5]) for c in prior)
     close, vol = float(last[4]), float(last[5])
-    if med_vol > 0 and close > prior_high and vol >= C.VOLUME_MULT * med_vol:
+    if med_vol > 0 and close > prior_high and vol >= volume_mult * med_vol:
         return {"close": close, "prior_high": prior_high,
                 "vol": vol, "median_vol": med_vol, "candle_ts": int(last[0])}
     return None
@@ -126,15 +127,16 @@ def breakout(ohlcv):
 
 # ---------- risk -------------------------------------------------------------
 
-def position_size(book):
-    """Fixed fraction of the CURRENT book. Never a function of the last trade."""
+def position_size(book, r):
+    """Fixed fraction of the CURRENT book. Never a function of the last trade.
+    Capped so that a total loss (rug) costs at most r.max_position_fraction of the book."""
     if book <= 0:
         return 0.0
-    by_risk = book * C.RISK_PER_TRADE / (abs(C.STOP_PCT) / 100)
-    return min(by_risk, book * C.MAX_POSITION_FRACTION)
+    by_risk = book * r.risk_per_trade / (abs(r.stop_pct) / 100)
+    return min(by_risk, book * r.max_position_fraction)
 
 
-def entry_block(*, feed_ok, open_count, open_exposure, book, day_pnl,
+def entry_block(r, *, feed_ok, open_count, open_exposure, book, day_pnl,
                 loss_streak, hours_since_last_loss):
     """Returns the breaker that blocks a new entry, or None."""
     if not feed_ok:
@@ -142,37 +144,38 @@ def entry_block(*, feed_ok, open_count, open_exposure, book, day_pnl,
     if book <= 0:
         return "breaker_book_empty"
     day_start = book - day_pnl
-    if day_pnl <= -C.DAILY_LOSS_CAP * day_start:
+    if day_pnl <= -r.daily_loss_cap * day_start:
         return "breaker_daily_loss"
-    if (loss_streak >= C.MAX_LOSS_STREAK and hours_since_last_loss is not None
-            and hours_since_last_loss < C.LOSS_STREAK_PAUSE_H):
+    if (loss_streak >= r.max_loss_streak and hours_since_last_loss is not None
+            and hours_since_last_loss < r.loss_streak_pause_h):
         return "breaker_loss_streak"
-    if open_count >= C.MAX_OPEN_POSITIONS:
+    if open_count >= r.max_open_positions:
         return "max_positions"
-    if open_exposure + position_size(book) > book * C.MAX_EXPOSURE_FRACTION:
+    if open_exposure + position_size(book, r) > book * r.max_exposure_fraction:
         return "max_exposure"
     return None
 
 
-def entry_fill(price):
-    return price * (1 + C.SLIPPAGE_PCT / 100)
+def entry_fill(price, slippage_pct):
+    return price * (1 + slippage_pct / 100)
 
 
-def exit_reason(entry_px, price, held_h):
+def exit_reason(entry_px, price, held_h, *, stop_pct, target_pct, max_hold_h, slippage_pct):
     """entry_px is the (slipped) fill. Stops are checked only at each run,
-    so a gap through the stop is realised at the observed price, not at the stop."""
-    move = (price * (1 - C.SLIPPAGE_PCT / 100) / entry_px - 1) * 100
-    if move <= C.STOP_PCT:
+    so a gap through the stop is realised at the observed price, not at the stop.
+    The rules come from the position itself, so a retired version keeps its own exits."""
+    move = (price * (1 - slippage_pct / 100) / entry_px - 1) * 100
+    if move <= stop_pct:
         return "stop"
-    if move >= C.TARGET_PCT:
+    if move >= target_pct:
         return "target"
-    if held_h >= C.MAX_HOLD_H:
+    if held_h >= max_hold_h:
         return "time"
     return None
 
 
-def realised_pnl(size, entry_px, exit_price):
-    exit_px = exit_price * (1 - C.SLIPPAGE_PCT / 100)
+def realised_pnl(size, entry_px, exit_price, *, slippage_pct, fee_pct):
+    exit_px = exit_price * (1 - slippage_pct / 100)
     gross = size * (exit_px / entry_px - 1)
-    fees = size * C.FEE_PCT / 100 * 2
+    fees = size * fee_pct / 100 * 2
     return max(gross - fees, -size)

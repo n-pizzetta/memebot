@@ -1,7 +1,37 @@
-"""Hard limits. They live in code on purpose: changing one means a commit, not a slider."""
-import os
+"""Hard limits. They live in code on purpose: changing one means a commit, not a slider.
 
-# --- Univers : seulement les "survivants" ---------------------------------
+Ce fichier contient ce qui est commun à tout le labo (univers Solana, gates, endpoints,
+garde-fous globaux). Les réglages propres à une stratégie (signal, sorties, taille) sont
+dans bot/strategies/<nom>.py, une entrée par version.
+"""
+import os
+from dataclasses import dataclass
+
+# --- Garde-fous du labo (vérifiés par tests/test_lab.py) -----------------------
+PAPER_START_BOOK = 1_000.0  # capital fictif de départ de chaque stratégie-version (USD)
+MAX_LOSS_ON_TOTAL_FAILURE = 0.02  # une position qui tombe à zéro (rug) coûte au plus 2 % du capital
+MISSES_BEFORE_ASSUMED_RUG = 3  # prix introuvable 3 runs de suite => on compte -100 %
+
+
+@dataclass(frozen=True)
+class Risk:
+    """Taille, sorties, coûts et disjoncteurs d'une version de stratégie.
+    Les valeurs par défaut sont celles de breakout v1 (25/10/2026)."""
+    risk_per_trade: float = 0.01        # 1 % du capital ACTUEL perdu si le stop est respecté
+    max_position_fraction: float = 0.10
+    max_exposure_fraction: float = 0.40
+    max_open_positions: int = 5
+    stop_pct: float = -15.0
+    target_pct: float = 30.0
+    max_hold_h: float = 48
+    slippage_pct: float = 1.5           # par côté, volontairement pessimiste
+    fee_pct: float = 0.3                # frais de swap par côté
+    daily_loss_cap: float = 0.03        # -3 % du capital sur la journée UTC => plus d'entrée
+    max_loss_streak: int = 4            # 4 pertes d'affilée => pause
+    loss_streak_pause_h: float = 24
+
+
+# --- Univers memecoins Solana : seulement les "survivants" ----------------------
 MIN_AGE_H = 24              # on ignore les tokens de moins de 24 h (zone des rugs)
 MAX_AGE_H = 24 * 7          # et ceux de plus de 7 jours
 MIN_LIQ_USD = 50_000        # liquidité mini du pool pour pouvoir sortir
@@ -18,28 +48,6 @@ BANNED_TOKEN2022_EXTENSIONS = {
 }
 USE_RUGCHECK = True         # rejet si RugCheck signale un risque de niveau "danger"
 
-# --- Signal : cassure de plus haut avec volume -----------------------------
-BREAKOUT_LOOKBACK_H = 24    # la bougie close doit dépasser le plus haut des 24 h précédentes
-VOLUME_MULT = 1.5           # ... avec un volume >= 1,5 x la médiane des 24 h précédentes
-
-# --- Paper trading -----------------------------------------------------------
-PAPER_START_BOOK = 1_000.0  # capital fictif de départ (USD)
-RISK_PER_TRADE = 0.01       # 1 % du capital ACTUEL risqué par trade
-MAX_POSITION_FRACTION = 0.10
-MAX_EXPOSURE_FRACTION = 0.40
-MAX_OPEN_POSITIONS = 5
-STOP_PCT = -15.0
-TARGET_PCT = 30.0
-MAX_HOLD_H = 48
-SLIPPAGE_PCT = 1.5          # par côté, volontairement pessimiste
-FEE_PCT = 0.3               # frais de swap par côté
-MISSES_BEFORE_ASSUMED_RUG = 3  # prix introuvable 3 runs de suite => on compte -100 %
-
-# --- Disjoncteurs ------------------------------------------------------------
-DAILY_LOSS_CAP = 0.03       # -3 % du capital sur la journée UTC => plus d'entrée
-MAX_LOSS_STREAK = 4         # 4 pertes d'affilée => pause
-LOSS_STREAK_PAUSE_H = 24
-
 # --- Endpoints -----------------------------------------------------------------
 GECKO = "https://api.geckoterminal.com/api/v2"
 GECKO_MIN_INTERVAL_S = 2.2  # API gratuite ~30 req/min
@@ -47,8 +55,9 @@ RPC = os.environ.get("SOLANA_RPC") or "https://api.mainnet-beta.solana.com"
 RUGCHECK = "https://api.rugcheck.xyz/v1"
 DB_PATH = os.environ.get("DB_PATH", "data/journal.db")
 
+WSOL = "So11111111111111111111111111111111111111112"
 SKIP_MINTS = {
-    "So11111111111111111111111111111111111111112",   # wSOL
+    WSOL,
     "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v",  # USDC
     "Es9vMFrzaCERmJfrF4H2FYD4KCoNkY11McCe8BenwNYB",  # USDT
 }
