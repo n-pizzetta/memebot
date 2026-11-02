@@ -201,3 +201,13 @@ def test_sol_price_failure_is_not_critical(conn):
         raise RuntimeError("api down")
     _, ok, _, _ = run.cycle(conn, NOW, {"good": fake_strategy("good")}, sol_price=boom)
     assert ok
+
+
+# ---- rapport : la référence SOL ne compare que des périodes identiques ------------------------
+
+def test_sol_reference_needs_prices_from_the_start_of_the_period(conn):
+    from bot import report
+    for ts, px in (("2026-11-03T12:00:00+00:00", 100.0), ("2026-11-10T12:00:00+00:00", 110.0)):
+        conn.execute("INSERT INTO runs (ts, status, sol_px) VALUES (?, 'ok', ?)", (ts, px))
+    assert report._sol_return(conn, "2026-11-03T11:30:00+00:00") == pytest.approx(0.10)
+    assert report._sol_return(conn, "2026-10-25T13:00:00+00:00") is None  # v1 : trop tôt

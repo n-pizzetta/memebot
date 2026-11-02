@@ -16,15 +16,21 @@ def _pct(x):
     return f"{x * 100:+.1f} %"
 
 
-def _sol_return(conn, since_iso):
-    """Return of simply holding SOL since `since_iso`, from prices logged by the runs."""
+def _sol_return(conn, since_iso, max_gap_h=1.0):
+    """Return of simply holding SOL since `since_iso`, from prices logged by the runs.
+    None if the first logged price is more than `max_gap_h` after `since_iso`: comparing
+    two different periods would be misleading."""
     first = conn.execute("SELECT ts, sol_px FROM runs WHERE sol_px IS NOT NULL AND ts>=? "
                          "ORDER BY ts LIMIT 1", (since_iso,)).fetchone()
     last = conn.execute("SELECT ts, sol_px FROM runs WHERE sol_px IS NOT NULL "
                         "ORDER BY ts DESC LIMIT 1").fetchone()
     if not first or not last or first["ts"] == last["ts"]:
-        return None, None
-    return last["sol_px"] / first["sol_px"] - 1, first["ts"]
+        return None
+    gap_h = (datetime.fromisoformat(first["ts"]) - datetime.fromisoformat(since_iso)
+             ).total_seconds() / 3600
+    if gap_h > max_gap_h:
+        return None
+    return last["sol_px"] / first["sol_px"] - 1
 
 
 def strategy_section(conn, name, version, v, active):
@@ -59,12 +65,14 @@ def strategy_section(conn, name, version, v, active):
             f"- **Espérance par trade : ${sum(pnl) / len(pnl):,.2f}, soit "
             f"{_pct(sum(ret) / len(ret))} de la position**",
             f"- Pire trade : {_pct(min(ret))} de la position · drawdown max : {max_dd * 100:.1f} %"]
-    sol, sol_since = _sol_return(conn, rows[0]["opened_ts"])
+    start = rows[0]["opened_ts"]
+    sol = _sol_return(conn, start)
     if sol is not None:
-        out.append(f"- Référence, garder du SOL depuis {sol_since[:10]} : {_pct(sol)} "
-                   f"(stratégie : {_pct(book / C.PAPER_START_BOOK - 1)})")
+        out.append(f"- Référence, garder du SOL sur la même période (depuis {start[:10]}) : "
+                   f"{_pct(sol)} · stratégie : {_pct(book / C.PAPER_START_BOOK - 1)}")
     else:
-        out.append("- Référence SOL : pas encore de prix enregistré sur la période.")
+        out.append("- Référence SOL : indisponible pour cette période (prix du SOL enregistrés "
+                   "seulement depuis la v2).")
     if len(closed) < MIN_TRADES:
         out.append(f"- Échantillon trop petit pour conclure ({len(closed)}/{MIN_TRADES} trades).")
     out.append("\n| Sortie | Trades | P&L |\n|---|---|---|")
