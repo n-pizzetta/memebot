@@ -3,8 +3,13 @@ from datetime import datetime, timedelta, timezone
 
 import pytest
 
-from bot import config as C
 from bot import logic
+from bot.config import Risk
+
+R = Risk()  # breakout v1 defaults
+EXITS = dict(stop_pct=R.stop_pct, target_pct=R.target_pct, max_hold_h=R.max_hold_h,
+             slippage_pct=R.slippage_pct)
+COSTS = dict(slippage_pct=R.slippage_pct, fee_pct=R.fee_pct)
 
 NOW = datetime(2026, 10, 25, 12, tzinfo=timezone.utc)
 MINT = "7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"
@@ -23,7 +28,7 @@ def mint_acct(**info):
     return {"data": {"parsed": {"info": base}}}
 
 
-def candles(n=C.BREAKOUT_LOOKBACK_H + 2, high=1.0, vol=100.0, last_close=1.0, last_vol=100.0):
+def candles(n=24 + 2, high=1.0, vol=100.0, last_close=1.0, last_vol=100.0):
     rows = [[1000 - i, 1, high, 0.9, 0.95, vol] for i in range(n)]
     rows[1] = [999, 1, last_close, 0.9, last_close, last_vol]
     return rows
@@ -135,9 +140,14 @@ def test_breakout_ignores_short_history():
 # ---- sizing ----------------------------------------------------------------------
 
 def test_size_is_fraction_of_current_book_only():
-    assert logic.position_size(1000) == pytest.approx(66.67, abs=0.01)  # 1 % risk / 15 % stop
-    assert logic.position_size(500) == pytest.approx(33.33, abs=0.01)
-    assert logic.position_size(0) == 0
+    assert logic.position_size(1000, R) == pytest.approx(66.67, abs=0.01)  # 1 % risk / 15 % stop
+    assert logic.position_size(500, R) == pytest.approx(33.33, abs=0.01)
+    assert logic.position_size(0, R) == 0
+
+
+def test_size_is_capped_by_max_position_fraction():
+    capped = Risk(max_position_fraction=0.02)
+    assert logic.position_size(1000, capped) == pytest.approx(20.0)
 
 
 # ---- breakers ---------------------------------------------------------------------
@@ -150,45 +160,45 @@ def state(**kw):
 
 
 def test_entry_allowed_in_normal_conditions():
-    assert logic.entry_block(**state()) is None
+    assert logic.entry_block(R, **state()) is None
 
 
 def test_breaker_stale_feed():
-    assert logic.entry_block(**state(feed_ok=False)) == "breaker_stale_feed"
+    assert logic.entry_block(R, **state(feed_ok=False)) == "breaker_stale_feed"
 
 
 def test_breaker_daily_loss():
-    assert logic.entry_block(**state(book=970.0, day_pnl=-30.0)) == "breaker_daily_loss"
+    assert logic.entry_block(R, **state(book=970.0, day_pnl=-30.0)) == "breaker_daily_loss"
 
 
 def test_breaker_loss_streak_and_its_expiry():
-    assert logic.entry_block(**state(loss_streak=4, hours_since_last_loss=2)) \
+    assert logic.entry_block(R, **state(loss_streak=4, hours_since_last_loss=2)) \
         == "breaker_loss_streak"
-    assert logic.entry_block(**state(loss_streak=4, hours_since_last_loss=30)) is None
+    assert logic.entry_block(R, **state(loss_streak=4, hours_since_last_loss=30)) is None
 
 
 def test_breaker_max_positions():
-    assert logic.entry_block(**state(open_count=C.MAX_OPEN_POSITIONS)) == "max_positions"
+    assert logic.entry_block(R, **state(open_count=R.max_open_positions)) == "max_positions"
 
 
 def test_breaker_max_exposure():
-    assert logic.entry_block(**state(open_exposure=380.0)) == "max_exposure"
+    assert logic.entry_block(R, **state(open_exposure=380.0)) == "max_exposure"
 
 
 # ---- exits & pnl --------------------------------------------------------------------
 
 def test_exit_stop_target_time():
-    entry = logic.entry_fill(1.0)
-    assert logic.exit_reason(entry, 0.80, 1) == "stop"
-    assert logic.exit_reason(entry, 1.40, 1) == "target"
-    assert logic.exit_reason(entry, 1.00, C.MAX_HOLD_H) == "time"
-    assert logic.exit_reason(entry, 1.00, 1) is None
+    entry = logic.entry_fill(1.0, R.slippage_pct)
+    assert logic.exit_reason(entry, 0.80, 1, **EXITS) == "stop"
+    assert logic.exit_reason(entry, 1.40, 1, **EXITS) == "target"
+    assert logic.exit_reason(entry, 1.00, R.max_hold_h, **EXITS) == "time"
+    assert logic.exit_reason(entry, 1.00, 1, **EXITS) is None
 
 
 def test_round_trip_at_same_price_loses_costs():
-    entry = logic.entry_fill(1.0)
-    assert logic.realised_pnl(100, entry, 1.0) < 0
+    entry = logic.entry_fill(1.0, R.slippage_pct)
+    assert logic.realised_pnl(100, entry, 1.0, **COSTS) < 0
 
 
 def test_rug_loses_whole_position_and_no_more():
-    assert logic.realised_pnl(100, 1.0, 0.0) == -100
+    assert logic.realised_pnl(100, 1.0, 0.0, **COSTS) == -100

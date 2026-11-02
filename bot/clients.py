@@ -42,9 +42,9 @@ def top_volume_pools(page):
                   {"page": page, "sort": "h24_volume_usd_desc", "include": "base_token"})
 
 
-def ohlcv_hourly(pool):
+def ohlcv_hourly(pool, limit):
     data = _gecko(f"/networks/solana/pools/{pool}/ohlcv/hour",
-                  {"aggregate": 1, "limit": C.BREAKOUT_LOOKBACK_H + 4, "currency": "usd"})
+                  {"aggregate": 1, "limit": limit, "currency": "usd"})
     return data.get("data", {}).get("attributes", {}).get("ohlcv_list", [])
 
 
