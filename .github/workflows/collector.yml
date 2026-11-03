@@ -21,6 +21,10 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
+        with:
+          # Toujours la dernière version de main, pas le commit du déclenchement : un run mis en
+          # file d'attente derrière un autre doit repartir du journal que ce dernier a sauvegardé.
+          ref: main
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
