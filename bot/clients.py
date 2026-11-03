@@ -1,5 +1,6 @@
 """Thin network clients. Read-only: nothing here can sign or send a transaction."""
 import time
+from datetime import datetime, timezone
 
 import requests
 from solders.pubkey import Pubkey
@@ -102,3 +103,15 @@ def rugcheck_summary(mint):
         return _get(f"{C.RUGCHECK}/tokens/{mint}/report/summary", tries=2)
     except Exception:
         return None
+
+
+def yahoo_daily(symbol, start):
+    """Raw Yahoo Finance chart JSON, daily bars from `start` (a date) to now."""
+    p1 = int(datetime(start.year, start.month, start.day, tzinfo=timezone.utc).timestamp()) \
+        - 7 * 86400
+    p2 = int(time.time()) + 86400
+    r = _session.get(f"{C.YAHOO}/v8/finance/chart/{symbol}",
+                     params={"interval": "1d", "period1": p1, "period2": p2},
+                     headers={"user-agent": "Mozilla/5.0"}, timeout=20)
+    r.raise_for_status()
+    return r.json()

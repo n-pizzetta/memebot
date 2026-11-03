@@ -7,6 +7,7 @@ Tout essai y figure, même abandonné (règle 6 de `LAB.md`).
 | 001 | Cassure + volume, memecoins survivants | breakout v1 | archivée (bugs d'exécution) | 2026-10-25 | 2026-11-03 | 12 | aucun : échantillon trop petit, défauts corrigés en v2 |
 | 002 | Idem, une bougie = un trade, rug ≤ 2 % | breakout v2 | en paper | 2026-11-03 | — | 0 | — |
 | 003 | Prime du week-end, actions tokenisées | xstocks_premium v1 | proposée | — | — | — | — |
+| 004 | Suivre les setups du compte X vs ETF MSCI World | setups v1 | en paper | 2026-09-30 | — | 0 | verdict prévu en mars 2027 |
 
 ## Idées en attente (pas encore de fiche)
 

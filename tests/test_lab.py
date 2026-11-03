@@ -123,7 +123,7 @@ def test_retired_version_exits_with_its_own_rules(conn):
     desk(conn, version=2, risk=Risk(stop_pct=-50.0, max_position_fraction=0.02)).consider(
         mint="NEW", pool="P", name="N", price=1.0, signal_ts=1)
     paper.manage_open_positions(conn, NOW + timedelta(hours=1),
-                                {"breakout": lambda mints: {m: 0.75 for m in mints}}, print)
+                                {"breakout": SimpleNamespace(prices=lambda mints: {m: 0.75 for m in mints})}, print)
     still_open = {r["mint"] for r in open_rows(conn)}
     assert still_open == {"NEW"}  # -25 % : stop v1 (-15 %) touché, pas celui à -50 %
 
@@ -131,7 +131,7 @@ def test_retired_version_exits_with_its_own_rules(conn):
 def test_missing_price_three_times_is_counted_as_rug(conn):
     desk(conn).consider(mint="M", pool="P", name="X", price=1.0, signal_ts=1)
     for _ in range(C.MISSES_BEFORE_ASSUMED_RUG):
-        paper.manage_open_positions(conn, NOW, {"breakout": lambda mints: {}}, print)
+        paper.manage_open_positions(conn, NOW, {"breakout": SimpleNamespace(prices=lambda mints: {})}, print)
     row = conn.execute("SELECT exit_reason, pnl_usd, size_usd FROM positions").fetchone()
     assert row["exit_reason"] == "price_missing_assumed_rug"
     assert row["pnl_usd"] == -row["size_usd"]

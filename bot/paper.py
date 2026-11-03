@@ -72,24 +72,28 @@ class Desk:
         return logic.entry_block(self.risk, feed_ok=self.feed_ok, book=self.book,
                                  **self.state()) or "paper_entry"
 
-    def open(self, *, mint, pool, name, price, signal_ts):
+    def open(self, *, mint, pool, name, price, signal_ts, opened_ts=None, position_detail=None):
+        """opened_ts lets a strategy record an entry that happened at a known past time
+        (ex. un setup noté au moment où il a été pris). Default: now."""
         r = self.risk
         size = logic.position_size(self.book, r)
         self.conn.execute(
             "INSERT INTO positions (mint, pool, name, opened_ts, entry_px, size_usd, last_px, "
-            "strategy, version, signal_ts, stop_pct, target_pct, max_hold_h, slippage_pct, fee_pct) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
-            (mint, pool, name, iso(self.now), logic.entry_fill(price, r.slippage_pct), size, price,
-             self.strategy, self.version, signal_ts, r.stop_pct, r.target_pct, r.max_hold_h,
-             r.slippage_pct, r.fee_pct))
+            "strategy, version, signal_ts, stop_pct, target_pct, max_hold_h, slippage_pct, fee_pct, "
+            "detail) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            (mint, pool, name, opened_ts or iso(self.now), logic.entry_fill(price, r.slippage_pct),
+             size, price, self.strategy, self.version, signal_ts, r.stop_pct, r.target_pct,
+             r.max_hold_h, r.slippage_pct, r.fee_pct,
+             json.dumps(position_detail) if position_detail is not None else None))
         return size
 
     def consider(self, *, mint, pool, name, price, signal_ts, prior_high=None, vol=None,
-                 median_vol=None, detail=None):
+                 median_vol=None, detail=None, opened_ts=None, position_detail=None):
         """decide + open + journal the signal. Returns the action taken."""
         action = self.decide(mint, signal_ts)
         if action == "paper_entry":
-            self.open(mint=mint, pool=pool, name=name, price=price, signal_ts=signal_ts)
+            self.open(mint=mint, pool=pool, name=name, price=price, signal_ts=signal_ts,
+                      opened_ts=opened_ts, position_detail=position_detail)
         self.conn.execute(
             "INSERT INTO signals (run_id, ts, mint, pool, name, price, prior_high, vol, median_vol, "
             "action, strategy, version, signal_ts, detail) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
@@ -117,20 +121,27 @@ def close(conn, r, now, price, reason):
     return pnl
 
 
-def manage_open_positions(conn, now, price_fns, log):
-    """price_fns: {strategy_name: f(list_of_mints) -> {mint: price}}.
-    Each position is closed with the exit rules it was opened with."""
+def manage_open_positions(conn, now, registry, log):
+    """registry: {strategy_name: module}. A module with a manage(conn, now, rows, log) function
+    handles its own exits (ex. clôture hebdomadaire) ; otherwise its prices(mints) feeds the
+    generic stop / target / time rules. Each position keeps the rules it was opened with."""
     rows = conn.execute("SELECT * FROM positions WHERE closed_ts IS NULL").fetchall()
     by_strategy = {}
     for r in rows:
         by_strategy.setdefault(r["strategy"], []).append(r)
     for strategy, positions in by_strategy.items():
-        fn = price_fns.get(strategy)
-        if fn is None:
-            log(f"no price source for strategy {strategy!r}: {len(positions)} position(s) untouched")
+        module = registry.get(strategy)
+        if module is None:
+            log(f"unknown strategy {strategy!r}: {len(positions)} position(s) untouched")
+            continue
+        if hasattr(module, "manage"):
+            try:
+                module.manage(conn, now, positions, log)
+            except Exception as e:
+                log(f"{strategy}: manage failed: {e!r}")
             continue
         try:
-            prices = fn([r["mint"] for r in positions])
+            prices = module.prices([r["mint"] for r in positions])
         except Exception as e:
             log(f"{strategy}: price update failed: {e!r}")
             continue

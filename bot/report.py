@@ -33,7 +33,10 @@ def _sol_return(conn, since_iso, max_gap_h=1.0):
     return last["sol_px"] / first["sol_px"] - 1
 
 
-def strategy_section(conn, name, version, v, active):
+def strategy_section(conn, module, version):
+    name, v, active = module.NAME, module.VERSIONS[version], version == module.ACTIVE
+    min_trades = getattr(module, "MIN_TRADES", MIN_TRADES)
+    extra = module.report_lines(conn, version) if hasattr(module, "report_lines") else []
     rows = conn.execute("SELECT * FROM positions WHERE strategy=? AND version=? "
                         "ORDER BY COALESCE(closed_ts, opened_ts)", (name, version)).fetchall()
     closed = [r for r in rows if r["closed_ts"]]
@@ -44,10 +47,10 @@ def strategy_section(conn, name, version, v, active):
            f"- Depuis {v.since} · {v.note} · fiche : `{v.hypothesis}`",
            f"- Capital fictif : ${book:,.2f} (départ ${C.PAPER_START_BOOK:,.0f}, "
            f"{_pct(book / C.PAPER_START_BOOK - 1)})",
-           f"- Positions ouvertes : {open_n}, trades clos : {len(closed)}/{MIN_TRADES}"]
+           f"- Positions ouvertes : {open_n}, trades clos : {len(closed)}/{min_trades}"]
     if not closed:
-        out.append("- Aucun trade clos pour l'instant.\n")
-        return "\n".join(out)
+        out.append("- Aucun trade clos pour l'instant.")
+        return "\n".join(out + extra) + "\n"
 
     pnl = [r["pnl_usd"] for r in closed]
     ret = [r["pnl_usd"] / r["size_usd"] for r in closed if r["size_usd"]]
@@ -66,21 +69,22 @@ def strategy_section(conn, name, version, v, active):
             f"{_pct(sum(ret) / len(ret))} de la position**",
             f"- Pire trade : {_pct(min(ret))} de la position · drawdown max : {max_dd * 100:.1f} %"]
     start = rows[0]["opened_ts"]
-    sol = _sol_return(conn, start)
-    if sol is not None:
-        out.append(f"- Référence, garder du SOL sur la même période (depuis {start[:10]}) : "
-                   f"{_pct(sol)} · stratégie : {_pct(book / C.PAPER_START_BOOK - 1)}")
-    else:
-        out.append("- Référence SOL : indisponible pour cette période (prix du SOL enregistrés "
-                   "seulement depuis la v2).")
-    if len(closed) < MIN_TRADES:
-        out.append(f"- Échantillon trop petit pour conclure ({len(closed)}/{MIN_TRADES} trades).")
+    if getattr(module, "REFERENCE", None) == "SOL":
+        sol = _sol_return(conn, start)
+        if sol is not None:
+            out.append(f"- Référence, garder du SOL sur la même période (depuis {start[:10]}) : "
+                       f"{_pct(sol)} · stratégie : {_pct(book / C.PAPER_START_BOOK - 1)}")
+        else:
+            out.append("- Référence SOL : indisponible pour cette période (prix du SOL "
+                       "enregistrés seulement depuis la v2).")
+    if len(closed) < min_trades:
+        out.append(f"- Échantillon trop petit pour conclure ({len(closed)}/{min_trades} trades).")
     out.append("\n| Sortie | Trades | P&L |\n|---|---|---|")
     for r in conn.execute("SELECT exit_reason, COUNT(*), SUM(pnl_usd) FROM positions "
                           "WHERE strategy=? AND version=? AND closed_ts IS NOT NULL "
                           "GROUP BY exit_reason ORDER BY 2 DESC", (name, version)):
         out.append(f"| {r[0]} | {r[1]} | ${r[2]:,.2f} |")
-    return "\n".join(out) + "\n"
+    return "\n".join(out + extra) + "\n"
 
 
 def main(argv=None):
@@ -95,10 +99,9 @@ def main(argv=None):
     print(f"- Runs : {runs[0]} ({runs[1] or 0} complets), du {runs[2]} au {runs[3]}")
     print(f"- {args.days} derniers jours : {recent[0]} runs, {recent[1] or 0} dégradés\n")
 
-    for name, module in REGISTRY.items():
+    for module in REGISTRY.values():
         for version in sorted(module.VERSIONS, reverse=True):
-            print(strategy_section(conn, name, version, module.VERSIONS[version],
-                                   version == module.ACTIVE))
+            print(strategy_section(conn, module, version))
 
     print(f"## Pourquoi les tokens sont rejetés ({args.days} derniers jours)\n")
     print("| Stratégie | Verdict | Nombre |\n|---|---|---|")

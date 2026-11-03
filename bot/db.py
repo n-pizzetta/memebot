@@ -8,7 +8,7 @@ import sqlite3
 
 from . import config as C
 
-SCHEMA_VERSION = "2"
+SCHEMA_VERSION = "3"
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS runs (
@@ -27,7 +27,8 @@ CREATE TABLE IF NOT EXISTS positions (
   entry_px REAL, size_usd REAL, last_px REAL, misses INTEGER DEFAULT 0,
   closed_ts TEXT, exit_price REAL, pnl_usd REAL, exit_reason TEXT,
   strategy TEXT, version INTEGER, signal_ts INTEGER,
-  stop_pct REAL, target_pct REAL, max_hold_h REAL, slippage_pct REAL, fee_pct REAL);
+  stop_pct REAL, target_pct REAL, max_hold_h REAL, slippage_pct REAL, fee_pct REAL,
+  detail TEXT);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 """
 
@@ -42,7 +43,8 @@ _MIGRATION = {
                   "signal_ts": ("INTEGER", None),
                   "stop_pct": ("REAL", "-15.0"), "target_pct": ("REAL", "30.0"),
                   "max_hold_h": ("REAL", "48"), "slippage_pct": ("REAL", "1.5"),
-                  "fee_pct": ("REAL", "0.3")},
+                  "fee_pct": ("REAL", "0.3"),
+                  "detail": ("TEXT", None)},  # schéma 3 : règles propres à une stratégie (JSON)
 }
 
 
@@ -51,7 +53,7 @@ def book_key(strategy, version):
 
 
 def _migrate(conn):
-    """Brings a schema-1 journal (memebot avant le labo) to schema 2, once."""
+    """Brings an older journal (schéma 1 = memebot avant le labo, 2 = labo) up to date, once."""
     row = conn.execute("SELECT v FROM kv WHERE k='schema'").fetchone()
     if row and row[0] == SCHEMA_VERSION:
         return

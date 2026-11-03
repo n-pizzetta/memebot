@@ -14,6 +14,12 @@ et un test le vérifie.
 | Stratégie | Version active | Fiche |
 |---|---|---|
 | `breakout` : cassure de plus haut avec volume, memecoins Solana de 24 h à 7 jours | v2 | [002](lab/hypotheses/002-breakout-v2.md) |
+| `setups` : setups d'actions pris à la main (`lab/setups.csv`), clôture hebdo, comparés à l'ETF MSCI World | v1 | [004](lab/hypotheses/004-setups-compte-x.md) |
+
+**Ajouter un setup d'action** : une ligne dans `lab/setups.csv` le jour de l'entrée
+(symbole Yahoo, date, prix, stop et objectif sur clôture hebdo, prix de sortie). Le bot
+l'ouvre au run suivant, l'évalue chaque semaine et le compare à l'ETF sur la même période.
+Ce dépôt est public : ces lignes le sont aussi.
 
 ## Ce que fait un cycle (toutes les 15 min)
 
