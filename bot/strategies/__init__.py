@@ -22,6 +22,6 @@ class Version:
     note: str           # ce qui change par rapport à la version précédente
 
 
-from . import breakout  # noqa: E402
+from . import breakout, setups  # noqa: E402
 
-REGISTRY = {m.NAME: m for m in (breakout,)}
+REGISTRY = {m.NAME: m for m in (breakout, setups)}

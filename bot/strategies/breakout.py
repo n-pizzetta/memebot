@@ -8,6 +8,7 @@ from . import Version
 
 NAME = "breakout"
 ACTIVE = 2
+REFERENCE = "SOL"   # on compare au fait de simplement garder du SOL
 
 LOOKBACK_H = 24     # la bougie horaire close doit dépasser le plus haut des 24 h précédentes
 VOLUME_MULT = 1.5   # ... avec un volume >= 1,5 x la médiane des 24 h précédentes

@@ -1,0 +1,3 @@
+symbol,name,entry_date,entry_px,stop_close,stop_exit,target_close,target_exit,source,note
+HO.PA,Thales,2026-09-30,226.40,216,210,265,close,compte X,"après un stop, surveiller le comblement du gap 200-210"
+EL.PA,EssilorLuxottica,2026-10-16,153.20,139,open,170,close,compte X,"double bottom : plus bas 139, ligne de cou 152"

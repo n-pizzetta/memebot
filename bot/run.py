@@ -27,7 +27,7 @@ def cycle(conn, now, registry, sol_price=None):
         except Exception as e:
             log(f"sol price failed (non-critical): {e!r}")
 
-    paper.manage_open_positions(conn, now, {name: m.prices for name, m in registry.items()}, log)
+    paper.manage_open_positions(conn, now, registry, log)
 
     totals = {"pools_seen": 0, "deep_checked": 0, "signals": 0}
     ok = True

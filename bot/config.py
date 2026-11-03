@@ -53,6 +53,7 @@ GECKO = "https://api.geckoterminal.com/api/v2"
 GECKO_MIN_INTERVAL_S = 2.2  # API gratuite ~30 req/min
 RPC = os.environ.get("SOLANA_RPC") or "https://api.mainnet-beta.solana.com"
 RUGCHECK = "https://api.rugcheck.xyz/v1"
+YAHOO = "https://query1.finance.yahoo.com"  # cours journaliers des actions (stratégie setups)
 DB_PATH = os.environ.get("DB_PATH", "data/journal.db")
 
 WSOL = "So11111111111111111111111111111111111111112"
