@@ -8,6 +8,7 @@ Tout essai y figure, même abandonné (règle 6 de `LAB.md`).
 | 002 | Idem, une bougie = un trade, rug ≤ 2 % | breakout v2 | en paper | 2026-11-03 | — | 0 | — |
 | 003 | Prime du week-end, actions tokenisées | xstocks_premium v1 | proposée | — | — | — | — |
 | 004 | Suivre les setups du compte X vs ETF MSCI World | setups v1 | en paper | 2026-09-30 | — | 0 | verdict prévu en mars 2027 |
+| 005 | Signaux fantômes : breakout v2 sans le filtre des disjoncteurs | mesure (rapport), pas de trading | proposée | — | — | — | — |
 
 ## Idées en attente (pas encore de fiche)
 
