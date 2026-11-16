@@ -1,6 +1,6 @@
 # 005 — Signaux fantômes : mesurer le signal breakout v2 sans le filtre des disjoncteurs
 
-- **Statut** : proposée — pas encore codée
+- **Statut** : codée dans le rapport (`bot/ghost.py`, revue du 2026-11-16), mesure seule
 - **Stratégie / version** : mesure dans le rapport (ou collecte seule), aucune version de trading
 - **Auteur** : agent (revue du 2026-11-09)
 - **Date** : 2026-11-09
@@ -42,5 +42,18 @@ clos, l'écart moyen dépasse 10 points de % de la position, la mesure fantôme 
 ## Référence
 Les trades réels de breakout v2 sur les mêmes signaux, et garder du SOL.
 
+## Mise en œuvre (2026-11-16)
+- `bot/ghost.py`, section « Signaux fantômes » de `python -m bot.report`. Lecture seule (testé).
+- Un signal est « pris » si l'une de ses occurrences a donné `paper_entry` ; l'entrée fantôme reste
+  au prix de la **première** occurrence (cas Leonida du 10/11 : bloqué à 21:00, pris à 21:45).
+- Seuls les runs `ok` comptent comme ratés pour la règle des 3 absences.
+- Règle des -100 % conservée telle qu'écrite. Le rapport affiche **en plus** l'espérance si les
+  tokens disparus sortaient à leur dernier prix vu, car le journal montre qu'un token peut quitter
+  l'univers sans rug : BIG / TTWO (signaux du 13/11) a disparu le 14/11 à 05:30 alors que son
+  dernier prix vu était au-dessus de l'entrée et sa liquidité à 104 k$ (sorti des listes, volume
+  24 h ≈ 100 k$). Le critère d'échec ci-dessus n'est pas modifié.
+
 ## Résultats
-—
+Au 2026-11-16 (29 signaux distincts, 17 tokens) : pris 12 → espérance fantôme -33,8 % ; bloqués 17
+→ -6,8 % (7 objectifs, 2 disparus comptés -100 %). Écart fantôme − réel sur les 12 pris : -1,7 point
+en moyenne, 2,6 points en absolu (critère d'échec évalué à 20 trades réels clos).

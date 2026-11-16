@@ -6,7 +6,7 @@ import argparse
 from datetime import datetime, timedelta, timezone
 
 from . import config as C
-from . import db
+from . import db, ghost
 from .strategies import REGISTRY
 
 MIN_TRADES = 100
@@ -102,6 +102,8 @@ def main(argv=None):
     for module in REGISTRY.values():
         for version in sorted(module.VERSIONS, reverse=True):
             print(strategy_section(conn, module, version))
+
+    print(ghost.section(conn))
 
     print(f"## Pourquoi les tokens sont rejetés ({args.days} derniers jours)\n")
     print("| Stratégie | Verdict | Nombre |\n|---|---|---|")
