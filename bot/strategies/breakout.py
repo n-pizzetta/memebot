@@ -111,7 +111,10 @@ def step(ctx):
         n_signals += 1
         desk.consider(mint=p["mint"], pool=p["pool"], name=p["name"], price=p["price"],
                       signal_ts=sig["candle_ts"], prior_high=sig["prior_high"],
-                      vol=sig["vol"], median_vol=sig["median_vol"])
+                      vol=sig["vol"], median_vol=sig["median_vol"],
+                      # journal seul (aucune décision) : la clôture de la bougie qui a cassé,
+                      # pour comparer le prix d'entrée au niveau réel de la cassure.
+                      detail={"candle_close": sig["close"]})
 
     return {"feed_ok": feed_ok, "pools_seen": len(pools), "deep_checked": len(candidates),
             "signals": n_signals}
